@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import Navbar from "@/components/Navbar";
 import ContactCard from "@/components/ContactCard";
 import { Users, Mail, Bell, CheckCircle } from "lucide-react";
 
@@ -52,7 +53,8 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-card">
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <Navbar />
+      <div className="max-w-7xl mx-auto px-6 py-8 pt-24">{/* Added pt-24 for navbar spacing */}
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">

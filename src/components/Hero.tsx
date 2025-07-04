@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ArrowDown } from "lucide-react";
+import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-conference.jpg";
 
 const Hero = () => {
@@ -37,9 +38,11 @@ const Hero = () => {
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-          <Button variant="hero" size="lg" className="text-lg px-8 py-4 h-auto">
-            Start Building Connections
-          </Button>
+          <Link to="/dashboard">
+            <Button variant="hero" size="lg" className="text-lg px-8 py-4 h-auto">
+              Start Building Connections
+            </Button>
+          </Link>
           <Button variant="outline" size="lg" className="text-lg px-8 py-4 h-auto bg-background/20 backdrop-blur-sm border-primary-foreground/30 text-primary-foreground hover:bg-background/30">
             See How It Works
           </Button>
