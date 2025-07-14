@@ -14,7 +14,7 @@ const Dashboard = () => {
   // Fetch contacts data
   const { data: contacts = [], isLoading: contactsLoading, error: contactsError, isError: contactsIsError } = useQuery({
     queryKey: ['contacts'],
-    queryFn: apiClient.getContacts,
+    queryFn: () => apiClient.getContacts(),
     retry: 3,
     retryDelay: 1000,
   });
@@ -22,7 +22,7 @@ const Dashboard = () => {
   // Fetch contact statistics
   const { data: statsData, isLoading: statsLoading, error: statsError, isError: statsIsError } = useQuery({
     queryKey: ['contactStats'],
-    queryFn: apiClient.getContactStats,
+    queryFn: () => apiClient.getContactStats(),
     retry: 3,
     retryDelay: 1000,
   });
