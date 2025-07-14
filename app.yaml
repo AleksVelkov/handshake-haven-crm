@@ -26,6 +26,10 @@ services:
     value: ${handshake-haven-db.DATABASE_URL}
   - key: PORT
     value: "5000"
+  - key: NODE_TLS_REJECT_UNAUTHORIZED
+    value: "0"
+  - key: PGSSLMODE
+    value: prefer
 
 databases:
 - name: handshake-haven-db

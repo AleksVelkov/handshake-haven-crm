@@ -12,41 +12,112 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Database connection (only create if database config exists)
-export const pool = (process.env.POSTGRESQL_URI || process.env.DB_HOST || process.env.DB_USER) 
-  ? new Pool(
-      process.env.POSTGRESQL_URI
-        ? {
-            connectionString: process.env.POSTGRESQL_URI,
-            ssl: process.env.NODE_ENV === 'production' 
-              ? { rejectUnauthorized: false } 
-              : false,
-          }
-        : {
-            host: process.env.DB_HOST || 'localhost',
-            port: parseInt(process.env.DB_PORT || '5432'),
-            database: process.env.DB_NAME || 'handshake_haven',
-            user: process.env.DB_USER || 'postgres',
-            password: process.env.DB_PASSWORD || 'password',
-            ssl: process.env.NODE_ENV === 'production' 
-              ? { rejectUnauthorized: false } 
-              : false,
-          }
-    )
-  : null;
+// Database connection with multiple fallback strategies
+let pool: Pool | null = null;
+
+const createDatabasePool = () => {
+  if (!process.env.POSTGRESQL_URI && !process.env.DB_HOST && !process.env.DB_USER) {
+    return null;
+  }
+
+  // Set global TLS settings for production
+  if (process.env.NODE_ENV === 'production') {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  }
+
+  const baseConfig = process.env.POSTGRESQL_URI
+    ? { connectionString: process.env.POSTGRESQL_URI }
+    : {
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT || '5432'),
+        database: process.env.DB_NAME || 'handshake_haven',
+        user: process.env.DB_USER || 'postgres',
+        password: process.env.DB_PASSWORD || 'password',
+      };
+
+  // Try SSL first in production
+  if (process.env.NODE_ENV === 'production') {
+    try {
+      return new Pool({
+        ...baseConfig,
+        ssl: { rejectUnauthorized: false },
+      });
+    } catch (error) {
+      console.log('SSL connection failed, trying without SSL...');
+    }
+  }
+
+  // Fallback to no SSL
+  return new Pool({
+    ...baseConfig,
+    ssl: false,
+  });
+};
+
+// Create the pool
+export { pool };
+pool = createDatabasePool();
 
 // Initialize database and test connection
 const initializeApp = async () => {
   try {
     console.log('Starting server initialization...');
     
-    // Test database connection (skip if no database URL in development)
+    // Test database connection with retry logic
     if (pool) {
-      await pool.connect();
-      console.log('Connected to PostgreSQL database');
+      let connected = false;
+      let attempts = 0;
+      const maxAttempts = 5;
       
-      // Initialize database schema
-      await initializeDatabase();
+      while (!connected && attempts < maxAttempts) {
+        try {
+          attempts++;
+          console.log(`Database connection attempt ${attempts}/${maxAttempts}...`);
+          
+          const client = await pool.connect();
+          client.release();
+          
+          console.log('✅ Connected to PostgreSQL database');
+          connected = true;
+          
+          // Initialize database schema
+          await initializeDatabase();
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.log(`❌ Connection attempt ${attempts} failed:`, errorMessage);
+          
+          // If SSL error and we haven't tried without SSL yet, try that
+          if (errorMessage.includes('certificate') && process.env.NODE_ENV === 'production' && attempts === 1) {
+            console.log('🔄 SSL certificate issue detected, trying without SSL...');
+            
+            // Recreate pool without SSL
+            const baseConfig = process.env.POSTGRESQL_URI
+              ? { connectionString: process.env.POSTGRESQL_URI.replace('?sslmode=require', '') }
+              : {
+                  host: process.env.DB_HOST || 'localhost',
+                  port: parseInt(process.env.DB_PORT || '5432'),
+                  database: process.env.DB_NAME || 'handshake_haven',
+                  user: process.env.DB_USER || 'postgres',
+                  password: process.env.DB_PASSWORD || 'password',
+                };
+            
+            pool = new Pool({
+              ...baseConfig,
+              ssl: false,
+            });
+            
+            continue; // Try connection again with new pool
+          }
+          
+          if (attempts >= maxAttempts) {
+            console.log('⚠️  Max connection attempts reached. Starting server without database...');
+            break;
+          }
+          
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
     } else {
       console.log('No database configuration found - running in demo mode');
     }
