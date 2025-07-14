@@ -8,9 +8,37 @@ import { Users, Mail, Bell, CheckCircle, AlertCircle, Link as LinkIcon } from "l
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
+import { useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { toast } = useToast();
+
+  // Handle LinkedIn OAuth callback
+  useEffect(() => {
+    const linkedinStatus = searchParams.get('linkedin');
+    if (linkedinStatus === 'connected') {
+      toast({
+        title: "LinkedIn Connected! 🎉",
+        description: "Your LinkedIn account has been successfully connected to your CRM.",
+      });
+      // Remove the parameter from URL
+      searchParams.delete('linkedin');
+      setSearchParams(searchParams, { replace: true });
+    } else if (linkedinStatus === 'error') {
+      toast({
+        title: "LinkedIn Connection Failed",
+        description: "There was an error connecting your LinkedIn account. Please try again.",
+        variant: "destructive",
+      });
+      // Remove the parameter from URL
+      searchParams.delete('linkedin');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams, toast]);
 
   // Fetch contacts data
   const { data: contacts = [], isLoading: contactsLoading, error: contactsError, isError: contactsIsError } = useQuery({

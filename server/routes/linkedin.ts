@@ -61,13 +61,22 @@ router.get('/auth/callback', async (req: Request, res: Response) => {
   try {
     const { code, state, error: oauthError } = req.query;
 
+    console.log('LinkedIn OAuth callback received:', {
+      hasCode: !!code,
+      hasState: !!state,
+      error: oauthError,
+      fullUrl: req.url
+    });
+
     if (oauthError) {
+      console.error('LinkedIn OAuth error:', oauthError);
       return res.status(400).json({
         error: `LinkedIn OAuth error: ${oauthError}`
       });
     }
 
     if (!code || !state) {
+      console.error('Missing code or state:', { code: !!code, state: !!state });
       return res.status(400).json({
         error: 'Missing authorization code or state'
       });
@@ -76,36 +85,56 @@ router.get('/auth/callback', async (req: Request, res: Response) => {
     // Verify state
     const stateData = oauthStates.get(state as string);
     if (!stateData) {
+      console.error('Invalid state parameter:', state);
       return res.status(400).json({
         error: 'Invalid or expired state parameter'
       });
     }
 
+    console.log('State verified for user:', stateData.userId);
+
     // Clean up state
     oauthStates.delete(state as string);
 
     // Exchange code for token
+    console.log('Exchanging code for token...');
     const tokenData = await linkedinService.exchangeCodeForToken(code as string);
+    console.log('Token exchange successful');
     
     // Get user profile
+    console.log('Fetching LinkedIn profile...');
     const profile = await linkedinService.getProfile(tokenData.access_token);
+    console.log('Profile fetched:', profile.id);
     
     // Get email
     let email: string | undefined;
     try {
+      console.log('Fetching email address...');
       email = await linkedinService.getEmailAddress(tokenData.access_token);
+      console.log('Email fetched:', email);
     } catch (error) {
       console.warn('Could not fetch email from LinkedIn:', error);
     }
 
     // Save connection
+    console.log('Saving LinkedIn connection...');
     await linkedinService.saveConnection(stateData.userId, tokenData, profile, email);
+    console.log('LinkedIn connection saved successfully');
 
-    // Redirect to success page
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard?linkedin=connected`);
+    // Redirect to success page - use production URL for DigitalOcean
+    const frontendUrl = process.env.FRONTEND_URL || 
+                       (process.env.NODE_ENV === 'production' ? 'https://handshake-crm-36ymw.ondigitalocean.app' : 'http://localhost:5173');
+    
+    const redirectUrl = `${frontendUrl}/dashboard?linkedin=connected`;
+    console.log('Redirecting to:', redirectUrl);
+    res.redirect(redirectUrl);
   } catch (error) {
     console.error('LinkedIn OAuth callback error:', error);
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard?linkedin=error`);
+    const frontendUrl = process.env.FRONTEND_URL || 
+                       (process.env.NODE_ENV === 'production' ? 'https://handshake-crm-36ymw.ondigitalocean.app' : 'http://localhost:5173');
+    const redirectUrl = `${frontendUrl}/dashboard?linkedin=error`;
+    console.log('Error - redirecting to:', redirectUrl);
+    res.redirect(redirectUrl);
   }
 });
 
