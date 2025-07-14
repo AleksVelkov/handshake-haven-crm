@@ -216,6 +216,120 @@ class ApiClient {
   }> {
     return this.request('/ai/status');
   }
+
+  // LinkedIn API methods
+  async getLinkedInStatus(): Promise<{
+    configured: boolean;
+    message: string;
+  }> {
+    return this.request('/linkedin/status');
+  }
+
+  async initiateLinkedInAuth(): Promise<{
+    authUrl: string;
+    state: string;
+  }> {
+    return this.request('/linkedin/auth/initiate');
+  }
+
+  async getLinkedInConnection(): Promise<{
+    connected: boolean;
+    connection: any;
+  }> {
+    return this.request('/linkedin/connection');
+  }
+
+  async disconnectLinkedIn(): Promise<{ message: string }> {
+    return this.request('/linkedin/connection', {
+      method: 'DELETE',
+    });
+  }
+
+  async sendLinkedInMessage(params: {
+    recipientId: string;
+    message: string;
+    subject?: string;
+  }): Promise<{
+    messageId: string;
+    message: string;
+  }> {
+    return this.request('/linkedin/messages/send', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async getLinkedInConversations(page: number = 1, limit: number = 20): Promise<{
+    conversations: any[];
+    pagination: any;
+  }> {
+    return this.request(`/linkedin/messages/conversations?page=${page}&limit=${limit}`);
+  }
+
+  async getLinkedInMessages(conversationId: string, page: number = 1, limit: number = 50): Promise<{
+    messages: any[];
+    pagination: any;
+  }> {
+    return this.request(`/linkedin/messages/conversation/${conversationId}?page=${page}&limit=${limit}`);
+  }
+
+  async createLinkedInPost(params: {
+    content: string;
+    visibility?: 'PUBLIC' | 'CONNECTIONS' | 'LOGGED_IN_MEMBERS';
+    mediaUrls?: string[];
+  }): Promise<{
+    postId: string;
+    message: string;
+  }> {
+    return this.request('/linkedin/posts', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async getLinkedInPosts(page: number = 1, limit: number = 20): Promise<{
+    posts: any[];
+    pagination: any;
+  }> {
+    return this.request(`/linkedin/posts?page=${page}&limit=${limit}`);
+  }
+
+  async syncLinkedInData(): Promise<{ message: string }> {
+    return this.request('/linkedin/sync', {
+      method: 'POST',
+    });
+  }
+
+  async getLinkedInDrafts(): Promise<{
+    drafts: any[];
+  }> {
+    return this.request('/linkedin/messages/drafts');
+  }
+
+  async saveLinkedInDraft(params: {
+    recipientLinkedinId?: string;
+    recipientName?: string;
+    subject?: string;
+    content: string;
+    isTemplate?: boolean;
+    templateName?: string;
+    aiGenerated?: boolean;
+    aiPrompt?: string;
+  }): Promise<{
+    draftId: string;
+    message: string;
+  }> {
+    return this.request('/linkedin/messages/drafts', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async getLinkedInUnreadCount(): Promise<{
+    unreadCount: number;
+  }> {
+    return this.request('/linkedin/messages/unread-count');
+  }
 }
 
 export const apiClient = new ApiClient(); 

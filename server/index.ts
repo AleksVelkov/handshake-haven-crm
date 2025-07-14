@@ -8,6 +8,7 @@ import contactsRouter from './routes/contacts.js';
 import authRouter from './routes/auth.js';
 import testRouter from './routes/test.js';
 import aiRouter from './routes/ai.js';
+import linkedinRouter from './routes/linkedin.js';
 import { initializeDatabase } from './utils/database.js';
 
 dotenv.config();
@@ -149,6 +150,7 @@ const initializeApp = async () => {
     app.use('/api/auth', authRouter);
     app.use('/api/contacts', contactsRouter);
     app.use('/api/ai', aiRouter);
+    app.use('/api/linkedin', linkedinRouter);
     app.use('/api/test', testRouter);
     
     // Health check endpoint with database status

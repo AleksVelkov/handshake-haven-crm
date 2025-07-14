@@ -29,3 +29,5 @@ dist-ssr
 database-setup.sql
 TESTING.md
 AI_FEATURES.md
+LINKEDIN_INTEGRATION.md
+linkedin-database-setup.sql
