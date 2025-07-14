@@ -97,15 +97,27 @@ export class LinkedInService {
 
   // OAuth Methods
   generateAuthUrl(state: string): string {
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: process.env.LINKEDIN_CLIENT_ID!,
-      redirect_uri: process.env.LINKEDIN_REDIRECT_URI!,
-      state,
-      scope: LINKEDIN_SCOPES,
-    });
-
-    return `${LINKEDIN_AUTH_BASE}/authorization?${params.toString()}`;
+    // Ensure proper URL encoding for all parameters
+    const clientId = encodeURIComponent(process.env.LINKEDIN_CLIENT_ID!);
+    const redirectUri = encodeURIComponent(process.env.LINKEDIN_REDIRECT_URI!);
+    const stateParam = encodeURIComponent(state);
+    const scope = encodeURIComponent(LINKEDIN_SCOPES);
+    
+    const authUrl = `${LINKEDIN_AUTH_BASE}/authorization?` +
+      `response_type=code&` +
+      `client_id=${clientId}&` +
+      `redirect_uri=${redirectUri}&` +
+      `state=${stateParam}&` +
+      `scope=${scope}`;
+    
+    // Debug logging for production
+    console.log('LinkedIn Auth URL Generation:');
+    console.log('- Client ID:', process.env.LINKEDIN_CLIENT_ID);
+    console.log('- Redirect URI:', process.env.LINKEDIN_REDIRECT_URI);
+    console.log('- Scope:', LINKEDIN_SCOPES);
+    console.log('- Generated URL:', authUrl);
+    
+    return authUrl;
   }
 
   async exchangeCodeForToken(code: string): Promise<{
