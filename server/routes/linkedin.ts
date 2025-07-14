@@ -1,6 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth.js';
-import { linkedinService } from '../services/linkedin.js';
+import { linkedinService, LinkedInService } from '../services/linkedin.js';
 import { pool } from '../index.js';
 import crypto from 'crypto';
 
@@ -21,7 +21,7 @@ setInterval(() => {
 
 // Check LinkedIn configuration status
 router.get('/status', (req: Request, res: Response) => {
-  const isConfigured = linkedinService.constructor.isConfigured();
+  const isConfigured = LinkedInService.isConfigured();
   
   res.json({
     success: true,
