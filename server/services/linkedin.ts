@@ -166,13 +166,33 @@ export class LinkedInService {
   // Profile Methods
   async getProfile(accessToken: string): Promise<LinkedInProfile> {
     try {
-      const response = await this.apiClient.get('/people/~:(id,firstName,lastName,profilePicture(displayImage~:playableStreams),headline,vanityName)', {
+      // Use LinkedIn API v2 for basic profile with r_liteprofile scope
+      const response = await this.apiClient.get('/v2/people/(id~)', {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
       });
 
-      return response.data;
+      // Transform the response to match our interface
+      const profileData = response.data;
+      const profile: LinkedInProfile = {
+        id: profileData.id,
+        firstName: {
+          localized: profileData.firstName?.localized || { 'en_US': 'Unknown' }
+        },
+        lastName: {
+          localized: profileData.lastName?.localized || { 'en_US': 'Unknown' }
+        },
+        profilePicture: profileData.profilePicture ? {
+          displayImage: profileData.profilePicture.displayImage
+        } : undefined,
+        headline: profileData.headline ? {
+          localized: profileData.headline.localized
+        } : undefined,
+        vanityName: profileData.vanityName
+      };
+
+      return profile;
     } catch (error) {
       console.error('LinkedIn profile fetch error:', error);
       throw new Error('Failed to fetch LinkedIn profile');
@@ -181,7 +201,8 @@ export class LinkedInService {
 
   async getEmailAddress(accessToken: string): Promise<string> {
     try {
-      const response = await this.apiClient.get('/emailAddress?q=members&projection=(elements*(handle~))', {
+      // Use LinkedIn API v2 for email with r_emailaddress scope
+      const response = await this.apiClient.get('/v2/emailAddress?q=members&projection=(elements*(handle~))', {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
@@ -195,7 +216,7 @@ export class LinkedInService {
       return email;
     } catch (error) {
       console.error('LinkedIn email fetch error:', error);
-      throw new Error('Failed to fetch email address');
+      throw new Error('Failed to fetch LinkedIn email address');
     }
   }
 
