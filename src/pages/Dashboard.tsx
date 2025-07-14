@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Navbar from "@/components/Navbar";
 import ContactCard from "@/components/ContactCard";
-import { Users, Mail, Bell, CheckCircle, AlertCircle } from "lucide-react";
+import LinkedInConnection from "@/components/LinkedInConnection";
+import { Users, Mail, Bell, CheckCircle, AlertCircle, Link as LinkIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
@@ -156,6 +157,26 @@ const Dashboard = () => {
             <Bell className="w-4 h-4 mr-2" />
             View Templates
           </Button>
+        </div>
+
+        {/* Integrations Section */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <LinkIcon className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-semibold text-foreground">Integrations</h2>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LinkedInConnection />
+            <Card className="flex items-center justify-center p-6 border-2 border-dashed border-border">
+              <div className="text-center">
+                <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Mail className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm text-muted-foreground mb-2">Email Integration</p>
+                <p className="text-xs text-muted-foreground">Coming Soon</p>
+              </div>
+            </Card>
+          </div>
         </div>
 
         {/* Recent Contacts */}
