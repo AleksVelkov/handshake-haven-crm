@@ -57,7 +57,7 @@ router.get('/auth/initiate', authenticateToken, (req: AuthenticatedRequest, res:
 });
 
 // Handle LinkedIn OAuth callback
-router.get('/auth/callback', async (req: Request, res: Response) => {
+router.get('/callback', async (req: Request, res: Response) => {
   try {
     const { code, state, error: oauthError } = req.query;
 
