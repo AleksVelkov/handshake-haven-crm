@@ -44,6 +44,13 @@ export interface ContactStats {
   responded: number;
   converted: number;
   lost: number;
+  contacts_this_week: number;
+  responses_this_week: number;
+  conversions_this_week: number;
+  messages_sent: number;
+  messages_received: number;
+  unread_messages: number;
+  messages_sent_this_week: number;
 }
 
 // API utility functions
@@ -117,7 +124,7 @@ class ApiClient {
   }
 
   async getContactStats(): Promise<ContactStats> {
-    return this.request<ContactStats>('/contacts/stats/summary');
+    return this.request<ContactStats>('/contacts/stats/dashboard');
   }
 
   // Health check

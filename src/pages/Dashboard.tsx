@@ -34,25 +34,25 @@ const Dashboard = () => {
       title: "Total Contacts", 
       value: statsData?.total_contacts?.toString() || "0", 
       icon: Users, 
-      change: "+12 this week" 
+      change: `+${statsData?.contacts_this_week || 0} this week` 
     },
     { 
       title: "Messages Sent", 
-      value: "89", 
+      value: statsData?.messages_sent?.toString() || "0", 
       icon: Mail, 
-      change: "+23 this week" 
+      change: `+${statsData?.messages_sent_this_week || 0} this week` 
     },
     { 
       title: "Responses", 
       value: statsData?.responded?.toString() || "0", 
       icon: Bell, 
-      change: "+8 this week" 
+      change: `+${statsData?.responses_this_week || 0} this week` 
     },
     { 
       title: "Conversions", 
       value: statsData?.converted?.toString() || "0", 
       icon: CheckCircle, 
-      change: "+3 this week" 
+      change: `+${statsData?.conversions_this_week || 0} this week` 
     }
   ];
 

@@ -229,4 +229,88 @@ router.get('/stats/summary', async (req: AuthenticatedRequest, res) => {
   }
 });
 
+// Get comprehensive dashboard statistics
+router.get('/stats/dashboard', async (req: AuthenticatedRequest, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Get contact statistics
+    const contactStats = await executeQuery(`
+      SELECT 
+        COUNT(*) as total_contacts,
+        COUNT(CASE WHEN status = 'new' THEN 1 END) as new_contacts,
+        COUNT(CASE WHEN status = 'contacted' THEN 1 END) as contacted,
+        COUNT(CASE WHEN status = 'responded' THEN 1 END) as responded,
+        COUNT(CASE WHEN status = 'converted' THEN 1 END) as converted,
+        COUNT(CASE WHEN status = 'lost' THEN 1 END) as lost,
+        COUNT(CASE WHEN created_at >= NOW() - INTERVAL '7 days' THEN 1 END) as contacts_this_week,
+        COUNT(CASE WHEN status = 'responded' AND updated_at >= NOW() - INTERVAL '7 days' THEN 1 END) as responses_this_week,
+        COUNT(CASE WHEN status = 'converted' AND updated_at >= NOW() - INTERVAL '7 days' THEN 1 END) as conversions_this_week
+      FROM contacts
+      WHERE user_id = $1
+    `, [req.user.id]);
+
+    // Get LinkedIn message statistics (only if linkedin_messages table exists)
+    let linkedinStats = {
+      messages_sent: 0,
+      messages_received: 0,
+      unread_messages: 0,
+      messages_sent_this_week: 0
+    };
+
+    try {
+      const messageStats = await executeQuery(`
+        SELECT 
+          COUNT(CASE WHEN direction = 'outbound' THEN 1 END) as messages_sent,
+          COUNT(CASE WHEN direction = 'inbound' THEN 1 END) as messages_received,
+          COUNT(CASE WHEN direction = 'inbound' AND NOT is_read THEN 1 END) as unread_messages,
+          COUNT(CASE WHEN direction = 'outbound' AND sent_at >= NOW() - INTERVAL '7 days' THEN 1 END) as messages_sent_this_week
+        FROM linkedin_messages
+        WHERE user_id = $1
+      `, [req.user.id]);
+
+      if (messageStats.rows.length > 0) {
+        linkedinStats = {
+          messages_sent: parseInt(messageStats.rows[0].messages_sent) || 0,
+          messages_received: parseInt(messageStats.rows[0].messages_received) || 0,
+          unread_messages: parseInt(messageStats.rows[0].unread_messages) || 0,
+          messages_sent_this_week: parseInt(messageStats.rows[0].messages_sent_this_week) || 0
+        };
+      }
+    } catch (error) {
+      // LinkedIn messages table might not exist yet, ignore error
+      console.log('LinkedIn messages table not available:', error);
+    }
+
+    // Combine all statistics
+    const stats = {
+      // Contact statistics
+      total_contacts: parseInt(contactStats.rows[0].total_contacts) || 0,
+      new_contacts: parseInt(contactStats.rows[0].new_contacts) || 0,
+      contacted: parseInt(contactStats.rows[0].contacted) || 0,
+      responded: parseInt(contactStats.rows[0].responded) || 0,
+      converted: parseInt(contactStats.rows[0].converted) || 0,
+      lost: parseInt(contactStats.rows[0].lost) || 0,
+      
+      // Weekly changes
+      contacts_this_week: parseInt(contactStats.rows[0].contacts_this_week) || 0,
+      responses_this_week: parseInt(contactStats.rows[0].responses_this_week) || 0,
+      conversions_this_week: parseInt(contactStats.rows[0].conversions_this_week) || 0,
+      
+      // Message statistics
+      messages_sent: linkedinStats.messages_sent,
+      messages_received: linkedinStats.messages_received,
+      unread_messages: linkedinStats.unread_messages,
+      messages_sent_this_week: linkedinStats.messages_sent_this_week
+    };
+    
+    res.json(stats);
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error);
+    res.status(500).json({ error: 'Failed to fetch dashboard statistics' });
+  }
+});
+
 export default router; 
