@@ -27,3 +27,4 @@ dist-ssr
 .dockerignore
 .env.backup
 database-setup.sql
+TESTING.md

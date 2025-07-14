@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import contactsRouter from './routes/contacts.js';
 import authRouter from './routes/auth.js';
+import testRouter from './routes/test.js';
 import { initializeDatabase } from './utils/database.js';
 
 dotenv.config();
@@ -136,6 +137,7 @@ const initializeApp = async () => {
     // Routes
     app.use('/api/auth', authRouter);
     app.use('/api/contacts', contactsRouter);
+    app.use('/api/test', testRouter);
     
     // Health check endpoint
     app.get('/api/health', (req, res) => {
