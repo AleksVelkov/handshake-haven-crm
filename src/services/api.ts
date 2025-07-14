@@ -133,6 +133,89 @@ class ApiClient {
       console.warn('Connection warmup failed:', error);
     }
   }
+
+  // AI-powered features
+  async generateEmailDraft(params: {
+    contactId: string;
+    purpose: 'introduction' | 'follow-up' | 'proposal' | 'thank-you' | 'custom';
+    customPrompt?: string;
+    tone?: 'professional' | 'friendly' | 'casual';
+  }): Promise<{
+    email: { subject: string; body: string };
+    contact: { id: string; name: string; company?: string; email: string };
+  }> {
+    return this.request('/ai/generate-email', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async summarizeContactNotes(contactId: string): Promise<{
+    summary: {
+      summary: string;
+      keyPoints: string[];
+      nextActions: string[];
+      relationshipStatus: 'new' | 'warming' | 'engaged' | 'hot' | 'cold';
+    };
+    contact: { id: string; name: string; company?: string };
+  }> {
+    return this.request('/ai/summarize-notes', {
+      method: 'POST',
+      body: JSON.stringify({ contactId }),
+    });
+  }
+
+  async generateFollowUpSuggestions(contactId: string): Promise<{
+    suggestions: {
+      suggestions: string[];
+      timing: string;
+      priority: 'low' | 'medium' | 'high';
+    };
+    contact: { id: string; name: string; company?: string; status: string };
+  }> {
+    return this.request('/ai/follow-up-suggestions', {
+      method: 'POST',
+      body: JSON.stringify({ contactId }),
+    });
+  }
+
+  async generateCampaignContent(params: {
+    campaignType: 'email' | 'social' | 'newsletter' | 'announcement';
+    audience: string;
+    topic: string;
+    tone?: 'professional' | 'friendly' | 'casual' | 'urgent';
+    length?: 'short' | 'medium' | 'long';
+    callToAction?: string;
+  }): Promise<{
+    content: {
+      title: string;
+      content: string;
+      hashtags?: string[];
+    };
+  }> {
+    return this.request('/ai/generate-campaign', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async getContactInsights(): Promise<{
+    insights: {
+      totalContacts: number;
+      insights: string[];
+      recommendations: string[];
+      trends: string[];
+    };
+  }> {
+    return this.request('/ai/contact-insights');
+  }
+
+  async getAIStatus(): Promise<{
+    configured: boolean;
+    message: string;
+  }> {
+    return this.request('/ai/status');
+  }
 }
 
 export const apiClient = new ApiClient(); 

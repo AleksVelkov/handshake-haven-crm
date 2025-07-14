@@ -28,3 +28,4 @@ dist-ssr
 .env.backup
 database-setup.sql
 TESTING.md
+AI_FEATURES.md
