@@ -5,6 +5,7 @@ import { Pool } from 'pg';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import contactsRouter from './routes/contacts.js';
+import authRouter from './routes/auth.js';
 import { initializeDatabase } from './utils/database.js';
 
 dotenv.config();
@@ -133,6 +134,7 @@ const initializeApp = async () => {
     }
     
     // Routes
+    app.use('/api/auth', authRouter);
     app.use('/api/contacts', contactsRouter);
     
     // Health check endpoint

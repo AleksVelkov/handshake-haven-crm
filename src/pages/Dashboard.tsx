@@ -6,8 +6,11 @@ import ContactCard from "@/components/ContactCard";
 import { Users, Mail, Bell, CheckCircle, AlertCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/services/api";
+import { useAuth } from "@/context/AuthContext";
 
 const Dashboard = () => {
+  const { user } = useAuth();
+
   // Fetch contacts data
   const { data: contacts = [], isLoading: contactsLoading, error: contactsError } = useQuery({
     queryKey: ['contacts'],
@@ -76,7 +79,7 @@ const Dashboard = () => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            Welcome back! 👋
+            Welcome back, {user?.firstName}! 👋
           </h1>
           <p className="text-muted-foreground">
             Here's what's happening with your connections today.

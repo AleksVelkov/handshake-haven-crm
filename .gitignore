@@ -26,3 +26,4 @@ dist-ssr
 .env.example
 .dockerignore
 .env.backup
+database-setup.sql

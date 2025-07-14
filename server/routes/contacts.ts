@@ -1,8 +1,12 @@
 import express from 'express';
 import { pool } from '../index.js';
 import { Contact, CreateContactRequest, UpdateContactRequest } from '../models/Contact.js';
+import { authenticateToken, AuthenticatedRequest } from '../middleware/auth.js';
 
 const router = express.Router();
+
+// Apply authentication to all contact routes
+router.use(authenticateToken);
 
 // Type guard for PostgreSQL errors
 function isPostgreSQLError(error: unknown): error is { code: string; message: string } {
@@ -17,16 +21,21 @@ async function executeQuery(query: string, params?: any[]) {
   return pool.query(query, params);
 }
 
-// Get all contacts
-router.get('/', async (req, res) => {
+// Get all contacts for authenticated user
+router.get('/', async (req: AuthenticatedRequest, res) => {
   try {
     if (!pool) {
       return res.json([]);
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
     }
     
     const result = await executeQuery(`
       SELECT 
         id, 
+        user_id as "userId",
         name, 
         company, 
         email, 
@@ -38,8 +47,9 @@ router.get('/', async (req, res) => {
         created_at as "createdAt", 
         updated_at as "updatedAt"
       FROM contacts 
+      WHERE user_id = $1
       ORDER BY created_at DESC
-    `);
+    `, [req.user.id]);
     
     res.json(result.rows);
   } catch (error) {
@@ -48,13 +58,18 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get contact by ID
-router.get('/:id', async (req, res) => {
+// Get contact by ID for authenticated user
+router.get('/:id', async (req: AuthenticatedRequest, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
     const { id } = req.params;
     const result = await executeQuery(`
       SELECT 
         id, 
+        user_id as "userId",
         name, 
         company, 
         email, 
@@ -66,8 +81,8 @@ router.get('/:id', async (req, res) => {
         created_at as "createdAt", 
         updated_at as "updatedAt"
       FROM contacts 
-      WHERE id = $1
-    `, [id]);
+      WHERE id = $1 AND user_id = $2
+    `, [id, req.user.id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Contact not found' });
@@ -80,16 +95,21 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create new contact
-router.post('/', async (req, res) => {
+// Create new contact for authenticated user
+router.post('/', async (req: AuthenticatedRequest, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
     const { name, company, email, phone, tags, notes, status = 'new' }: CreateContactRequest = req.body;
     
     const result = await executeQuery(`
-      INSERT INTO contacts (name, company, email, phone, tags, notes, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO contacts (user_id, name, company, email, phone, tags, notes, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING 
         id, 
+        user_id as "userId",
         name, 
         company, 
         email, 
@@ -100,22 +120,26 @@ router.post('/', async (req, res) => {
         last_contact as "lastContact", 
         created_at as "createdAt", 
         updated_at as "updatedAt"
-    `, [name, company, email, phone, tags, notes, status]);
+    `, [req.user.id, name, company, email, phone, tags, notes, status]);
     
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating contact:', error);
     if (isPostgreSQLError(error) && error.code === '23505') { // Unique constraint violation
-      res.status(409).json({ error: 'Contact with this email already exists' });
+      res.status(409).json({ error: 'You already have a contact with this email address' });
     } else {
       res.status(500).json({ error: 'Failed to create contact' });
     }
   }
 });
 
-// Update contact
-router.put('/:id', async (req, res) => {
+// Update contact for authenticated user
+router.put('/:id', async (req: AuthenticatedRequest, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
     const { id } = req.params;
     const { name, company, email, phone, tags, notes, status, lastContact }: UpdateContactRequest = req.body;
     
@@ -131,9 +155,10 @@ router.put('/:id', async (req, res) => {
         status = COALESCE($7, status),
         last_contact = COALESCE($8, last_contact),
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $9
+      WHERE id = $9 AND user_id = $10
       RETURNING 
         id, 
+        user_id as "userId",
         name, 
         company, 
         email, 
@@ -144,7 +169,7 @@ router.put('/:id', async (req, res) => {
         last_contact as "lastContact", 
         created_at as "createdAt", 
         updated_at as "updatedAt"
-    `, [name, company, email, phone, tags, notes, status, lastContact, id]);
+    `, [name, company, email, phone, tags, notes, status, lastContact, id, req.user.id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Contact not found' });
@@ -157,11 +182,15 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete contact
-router.delete('/:id', async (req, res) => {
+// Delete contact for authenticated user
+router.delete('/:id', async (req: AuthenticatedRequest, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
     const { id } = req.params;
-    const result = await executeQuery('DELETE FROM contacts WHERE id = $1 RETURNING id', [id]);
+    const result = await executeQuery('DELETE FROM contacts WHERE id = $1 AND user_id = $2 RETURNING id', [id, req.user.id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Contact not found' });
@@ -174,9 +203,13 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Get contact statistics
-router.get('/stats/summary', async (req, res) => {
+// Get contact statistics for authenticated user
+router.get('/stats/summary', async (req: AuthenticatedRequest, res) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
     const result = await executeQuery(`
       SELECT 
         COUNT(*) as total_contacts,
@@ -186,7 +219,8 @@ router.get('/stats/summary', async (req, res) => {
         COUNT(CASE WHEN status = 'converted' THEN 1 END) as converted,
         COUNT(CASE WHEN status = 'lost' THEN 1 END) as lost
       FROM contacts
-    `);
+      WHERE user_id = $1
+    `, [req.user.id]);
     
     res.json(result.rows[0]);
   } catch (error) {

@@ -1,5 +1,6 @@
 import { pool } from '../index.js';
 import { CREATE_CONTACTS_TABLE } from '../models/Contact.js';
+import { CREATE_USERS_TABLE } from '../models/User.js';
 
 export const initializeDatabase = async () => {
   try {
@@ -10,7 +11,11 @@ export const initializeDatabase = async () => {
       return;
     }
     
-    // Create tables
+    // Create tables in order (users first, then contacts)
+    console.log('Creating users table...');
+    await pool.query(CREATE_USERS_TABLE);
+    
+    console.log('Creating contacts table...');
     await pool.query(CREATE_CONTACTS_TABLE);
     
     console.log('Database initialized successfully');

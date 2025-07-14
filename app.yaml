@@ -30,6 +30,8 @@ services:
     value: "0"
   - key: PGSSLMODE
     value: prefer
+  - key: JWT_SECRET
+    value: your-production-jwt-secret-key-here
 
 databases:
 - name: handshake-haven-db
