@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { Pool } from 'pg';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import contactsRouter from './routes/contacts';
 import { initializeDatabase } from './utils/database';
 
@@ -43,6 +45,12 @@ const initializeApp = async () => {
     app.use(cors());
     app.use(express.json());
     
+    // Serve static files in production
+    if (process.env.NODE_ENV === 'production') {
+      const distPath = path.join(process.cwd(), 'dist');
+      app.use(express.static(distPath));
+    }
+    
     // Routes
     app.use('/api/contacts', contactsRouter);
     
@@ -50,6 +58,13 @@ const initializeApp = async () => {
     app.get('/api/health', (req, res) => {
       res.json({ status: 'OK', timestamp: new Date().toISOString() });
     });
+    
+    // Serve React app in production
+    if (process.env.NODE_ENV === 'production') {
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
+      });
+    }
     
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
