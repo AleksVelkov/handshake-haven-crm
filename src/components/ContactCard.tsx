@@ -6,11 +6,11 @@ import { Mail, Users } from "lucide-react";
 interface Contact {
   id: string;
   name: string;
-  company: string;
+  company?: string;
   email: string;
   tags: string[];
   lastContact?: string;
-  status: "new" | "contacted" | "responded" | "converted";
+  status: "new" | "contacted" | "responded" | "converted" | "lost";
 }
 
 interface ContactCardProps {
@@ -24,6 +24,7 @@ const ContactCard = ({ contact }: ContactCardProps) => {
       case "contacted": return "bg-primary/20 text-primary";
       case "responded": return "bg-secondary/20 text-secondary";
       case "converted": return "bg-accent/20 text-accent";
+      case "lost": return "bg-red-100 text-red-800";
       default: return "bg-muted text-muted-foreground";
     }
   };
@@ -36,7 +37,7 @@ const ContactCard = ({ contact }: ContactCardProps) => {
             <h3 className="font-semibold text-card-foreground group-hover:text-primary transition-smooth">
               {contact.name}
             </h3>
-            <p className="text-sm text-muted-foreground">{contact.company}</p>
+            {contact.company && <p className="text-sm text-muted-foreground">{contact.company}</p>}
           </div>
           <Badge className={getStatusColor(contact.status)}>
             {contact.status}

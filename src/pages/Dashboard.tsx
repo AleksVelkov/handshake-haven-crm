@@ -3,53 +3,71 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Navbar from "@/components/Navbar";
 import ContactCard from "@/components/ContactCard";
-import { Users, Mail, Bell, CheckCircle } from "lucide-react";
+import { Users, Mail, Bell, CheckCircle, AlertCircle } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/services/api";
 
 const Dashboard = () => {
-  // Sample data
-  const stats = [
-    { title: "Total Contacts", value: "247", icon: Users, change: "+12 this week" },
-    { title: "Messages Sent", value: "89", icon: Mail, change: "+23 this week" },
-    { title: "Responses", value: "34", icon: Bell, change: "+8 this week" },
-    { title: "Conversions", value: "12", icon: CheckCircle, change: "+3 this week" }
-  ];
+  // Fetch contacts data
+  const { data: contacts = [], isLoading: contactsLoading, error: contactsError } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: apiClient.getContacts,
+  });
 
-  const sampleContacts = [
-    {
-      id: "1",
-      name: "Sarah Chen",
-      company: "TechStart Inc",
-      email: "sarah@techstart.com",
-      tags: ["TechConf2025", "VC", "AI"],
-      lastContact: "2 days ago",
-      status: "responded" as const
+  // Fetch contact statistics
+  const { data: statsData, isLoading: statsLoading } = useQuery({
+    queryKey: ['contactStats'],
+    queryFn: apiClient.getContactStats,
+  });
+
+  // Calculate stats from data
+  const stats = [
+    { 
+      title: "Total Contacts", 
+      value: statsData?.total_contacts?.toString() || "0", 
+      icon: Users, 
+      change: "+12 this week" 
     },
-    {
-      id: "2", 
-      name: "Michael Rodriguez",
-      company: "Innovation Labs",
-      email: "m.rodriguez@innovlabs.com",
-      tags: ["TechConf2025", "Startup", "B2B"],
-      status: "contacted" as const
+    { 
+      title: "Messages Sent", 
+      value: "89", 
+      icon: Mail, 
+      change: "+23 this week" 
     },
-    {
-      id: "3",
-      name: "Emily Watson",
-      company: "Growth Partners",
-      email: "emily.w@growthpartners.co",
-      tags: ["Investor", "Series A"],
-      status: "new" as const
+    { 
+      title: "Responses", 
+      value: statsData?.responded?.toString() || "0", 
+      icon: Bell, 
+      change: "+8 this week" 
     },
-    {
-      id: "4",
-      name: "David Kim",
-      company: "AI Ventures",
-      email: "david@aiventures.com", 
-      tags: ["TechConf2025", "AI", "ML"],
-      lastContact: "1 week ago",
-      status: "converted" as const
+    { 
+      title: "Conversions", 
+      value: statsData?.converted?.toString() || "0", 
+      icon: CheckCircle, 
+      change: "+3 this week" 
     }
   ];
+
+  // Get recent contacts (first 4)
+  const recentContacts = contacts.slice(0, 4);
+
+  if (contactsError) {
+    return (
+      <div className="min-h-screen bg-gradient-card">
+        <Navbar />
+        <div className="max-w-7xl mx-auto px-6 py-8 pt-24">
+          <Card className="shadow-medium">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-center text-red-500">
+                <AlertCircle className="w-6 h-6 mr-2" />
+                <p>Error loading dashboard data. Please check your database connection.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-card">
@@ -106,14 +124,24 @@ const Dashboard = () => {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-xl">Recent Contacts</CardTitle>
-              <Badge variant="outline">4 contacts</Badge>
+              <Badge variant="outline">{recentContacts.length} contacts</Badge>
             </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {sampleContacts.map((contact) => (
-                <ContactCard key={contact.id} contact={contact} />
-              ))}
+              {contactsLoading ? (
+                <div className="col-span-4 text-center py-8">
+                  <p className="text-muted-foreground">Loading contacts...</p>
+                </div>
+              ) : recentContacts.length > 0 ? (
+                recentContacts.map((contact) => (
+                  <ContactCard key={contact.id} contact={contact} />
+                ))
+              ) : (
+                <div className="col-span-4 text-center py-8">
+                  <p className="text-muted-foreground">No contacts yet. Add your first contact to get started!</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
