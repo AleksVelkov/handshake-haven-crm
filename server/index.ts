@@ -18,7 +18,9 @@ export const pool = (process.env.POSTGRESQL_URI || process.env.DB_HOST || proces
       process.env.POSTGRESQL_URI
         ? {
             connectionString: process.env.POSTGRESQL_URI,
-            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+            ssl: process.env.NODE_ENV === 'production' 
+              ? { rejectUnauthorized: false } 
+              : false,
           }
         : {
             host: process.env.DB_HOST || 'localhost',
@@ -26,7 +28,9 @@ export const pool = (process.env.POSTGRESQL_URI || process.env.DB_HOST || proces
             database: process.env.DB_NAME || 'handshake_haven',
             user: process.env.DB_USER || 'postgres',
             password: process.env.DB_PASSWORD || 'password',
-            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+            ssl: process.env.NODE_ENV === 'production' 
+              ? { rejectUnauthorized: false } 
+              : false,
           }
     )
   : null;
