@@ -4,6 +4,11 @@ import { Contact, CreateContactRequest, UpdateContactRequest } from '../models/C
 
 const router = express.Router();
 
+// Type guard for PostgreSQL errors
+function isPostgreSQLError(error: unknown): error is { code: string; message: string } {
+  return error !== null && typeof error === 'object' && 'code' in error;
+}
+
 // Get all contacts
 router.get('/', async (req, res) => {
   try {
@@ -88,7 +93,7 @@ router.post('/', async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating contact:', error);
-    if (error.code === '23505') { // Unique constraint violation
+    if (isPostgreSQLError(error) && error.code === '23505') { // Unique constraint violation
       res.status(409).json({ error: 'Contact with this email already exists' });
     } else {
       res.status(500).json({ error: 'Failed to create contact' });
