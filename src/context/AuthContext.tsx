@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { apiClient } from '@/services/api';
 
 // Types matching backend
 export interface User {
@@ -61,20 +62,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Initialize auth state from localStorage
   useEffect(() => {
-    const storedToken = localStorage.getItem('auth_token');
-    const storedUser = localStorage.getItem('auth_user');
+    const initializeAuth = async () => {
+      const storedToken = localStorage.getItem('auth_token');
+      const storedUser = localStorage.getItem('auth_user');
 
-    if (storedToken && storedUser) {
-      try {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error('Error parsing stored user data:', error);
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
+      if (storedToken && storedUser) {
+        try {
+          setToken(storedToken);
+          setUser(JSON.parse(storedUser));
+          // Warm up connection for authenticated users
+          await apiClient.warmUp();
+        } catch (error) {
+          console.error('Error parsing stored user data:', error);
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('auth_user');
+        }
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (credentials: LoginRequest) => {
@@ -99,6 +106,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       localStorage.setItem('auth_token', authData.token);
       localStorage.setItem('auth_user', JSON.stringify(authData.user));
+      
+      // Warm up connection after successful login
+      await apiClient.warmUp();
     } catch (error) {
       console.error('Login error:', error);
       throw error;

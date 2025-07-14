@@ -12,15 +12,19 @@ const Dashboard = () => {
   const { user } = useAuth();
 
   // Fetch contacts data
-  const { data: contacts = [], isLoading: contactsLoading, error: contactsError } = useQuery({
+  const { data: contacts = [], isLoading: contactsLoading, error: contactsError, isError: contactsIsError } = useQuery({
     queryKey: ['contacts'],
     queryFn: apiClient.getContacts,
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Fetch contact statistics
-  const { data: statsData, isLoading: statsLoading } = useQuery({
+  const { data: statsData, isLoading: statsLoading, error: statsError, isError: statsIsError } = useQuery({
     queryKey: ['contactStats'],
     queryFn: apiClient.getContactStats,
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Calculate stats from data
@@ -54,7 +58,27 @@ const Dashboard = () => {
   // Get recent contacts (first 4)
   const recentContacts = contacts.slice(0, 4);
 
-  if (contactsError) {
+  // Show loading state while initial load or retrying
+  if (contactsLoading || statsLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-card">
+        <Navbar />
+        <div className="max-w-7xl mx-auto px-6 py-8 pt-24">
+          <Card className="shadow-medium">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
+                <p>Loading dashboard data...</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Only show error after all retries have failed
+  if (contactsIsError || statsIsError) {
     return (
       <div className="min-h-screen bg-gradient-card">
         <Navbar />
@@ -63,7 +87,19 @@ const Dashboard = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-center text-red-500">
                 <AlertCircle className="w-6 h-6 mr-2" />
-                <p>Error loading dashboard data. Please check your database connection.</p>
+                <div>
+                  <p className="font-semibold">Error loading dashboard data</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {contactsError?.message || statsError?.message || 'Please check your database connection.'}
+                  </p>
+                  <Button 
+                    onClick={() => window.location.reload()} 
+                    className="mt-3"
+                    variant="outline"
+                  >
+                    Retry
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

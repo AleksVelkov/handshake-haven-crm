@@ -43,6 +43,11 @@ const createDatabasePool = () => {
       return new Pool({
         ...baseConfig,
         ssl: { rejectUnauthorized: false },
+        // Connection pool settings for better stability
+        max: 20, // Maximum number of connections
+        min: 2,  // Minimum number of connections
+        idleTimeoutMillis: 30000, // 30 seconds
+        connectionTimeoutMillis: 5000, // 5 seconds
       });
     } catch (error) {
       console.log('SSL connection failed, trying without SSL...');
@@ -53,6 +58,11 @@ const createDatabasePool = () => {
   return new Pool({
     ...baseConfig,
     ssl: false,
+    // Connection pool settings for better stability
+    max: 20, // Maximum number of connections
+    min: 2,  // Minimum number of connections
+    idleTimeoutMillis: 30000, // 30 seconds
+    connectionTimeoutMillis: 5000, // 5 seconds
   });
 };
 
@@ -139,9 +149,35 @@ const initializeApp = async () => {
     app.use('/api/contacts', contactsRouter);
     app.use('/api/test', testRouter);
     
-    // Health check endpoint
-    app.get('/api/health', (req, res) => {
-      res.json({ status: 'OK', timestamp: new Date().toISOString() });
+    // Health check endpoint with database status
+    app.get('/api/health', async (req, res) => {
+      try {
+        if (pool) {
+          const client = await pool.connect();
+          const result = await client.query('SELECT NOW() as current_time');
+          client.release();
+          
+          res.json({ 
+            status: 'OK', 
+            database: 'connected',
+            timestamp: new Date().toISOString(),
+            dbTime: result.rows[0].current_time
+          });
+        } else {
+          res.json({ 
+            status: 'OK', 
+            database: 'not_configured',
+            timestamp: new Date().toISOString() 
+          });
+        }
+      } catch (error) {
+        res.status(500).json({ 
+          status: 'ERROR', 
+          database: 'disconnected',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: new Date().toISOString() 
+        });
+      }
     });
     
     // Serve React app in production

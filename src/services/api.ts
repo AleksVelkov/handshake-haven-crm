@@ -121,8 +121,17 @@ class ApiClient {
   }
 
   // Health check
-  async healthCheck(): Promise<{ status: string; timestamp: string }> {
-    return this.request<{ status: string; timestamp: string }>('/health');
+  async healthCheck(): Promise<{ status: string; timestamp: string; database?: string }> {
+    return this.request<{ status: string; timestamp: string; database?: string }>('/health');
+  }
+
+  // Warm up the connection to reduce initial load failures
+  async warmUp(): Promise<void> {
+    try {
+      await this.healthCheck();
+    } catch (error) {
+      console.warn('Connection warmup failed:', error);
+    }
   }
 }
 
