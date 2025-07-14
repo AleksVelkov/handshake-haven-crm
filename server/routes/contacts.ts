@@ -1,6 +1,6 @@
 import express from 'express';
-import { pool } from '../index';
-import { Contact, CreateContactRequest, UpdateContactRequest } from '../models/Contact';
+import { pool } from '../index.js';
+import { Contact, CreateContactRequest, UpdateContactRequest } from '../models/Contact.js';
 
 const router = express.Router();
 
@@ -9,10 +9,22 @@ function isPostgreSQLError(error: unknown): error is { code: string; message: st
   return error !== null && typeof error === 'object' && 'code' in error;
 }
 
+// Helper function to handle database operations
+async function executeQuery(query: string, params?: any[]) {
+  if (!pool) {
+    throw new Error('Database not available');
+  }
+  return pool.query(query, params);
+}
+
 // Get all contacts
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query(`
+    if (!pool) {
+      return res.json([]);
+    }
+    
+    const result = await executeQuery(`
       SELECT 
         id, 
         name, 
@@ -40,7 +52,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query(`
+    const result = await executeQuery(`
       SELECT 
         id, 
         name, 
@@ -73,7 +85,7 @@ router.post('/', async (req, res) => {
   try {
     const { name, company, email, phone, tags, notes, status = 'new' }: CreateContactRequest = req.body;
     
-    const result = await pool.query(`
+    const result = await executeQuery(`
       INSERT INTO contacts (name, company, email, phone, tags, notes, status)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING 
@@ -107,7 +119,7 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { name, company, email, phone, tags, notes, status, lastContact }: UpdateContactRequest = req.body;
     
-    const result = await pool.query(`
+    const result = await executeQuery(`
       UPDATE contacts 
       SET 
         name = COALESCE($1, name),
@@ -149,7 +161,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM contacts WHERE id = $1 RETURNING id', [id]);
+    const result = await executeQuery('DELETE FROM contacts WHERE id = $1 RETURNING id', [id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Contact not found' });
@@ -165,7 +177,7 @@ router.delete('/:id', async (req, res) => {
 // Get contact statistics
 router.get('/stats/summary', async (req, res) => {
   try {
-    const result = await pool.query(`
+    const result = await executeQuery(`
       SELECT 
         COUNT(*) as total_contacts,
         COUNT(CASE WHEN status = 'new' THEN 1 END) as new_contacts,

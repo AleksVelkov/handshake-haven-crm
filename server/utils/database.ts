@@ -1,9 +1,14 @@
-import { pool } from '../index';
-import { CREATE_CONTACTS_TABLE } from '../models/Contact';
+import { pool } from '../index.js';
+import { CREATE_CONTACTS_TABLE } from '../models/Contact.js';
 
 export const initializeDatabase = async () => {
   try {
     console.log('Initializing database...');
+    
+    if (!pool) {
+      console.log('No database pool available - skipping database initialization');
+      return;
+    }
     
     // Create tables
     await pool.query(CREATE_CONTACTS_TABLE);
@@ -17,6 +22,11 @@ export const initializeDatabase = async () => {
 
 export const testConnection = async () => {
   try {
+    if (!pool) {
+      console.log('No database pool available - skipping connection test');
+      return false;
+    }
+    
     const result = await pool.query('SELECT NOW()');
     console.log('Database connection test successful:', result.rows[0]);
     return true;
