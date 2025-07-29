@@ -5,9 +5,10 @@ import { pool } from '../index.js';
 const LINKEDIN_API_BASE = 'https://api.linkedin.com/v2';
 const LINKEDIN_AUTH_BASE = 'https://www.linkedin.com/oauth/v2';
 
-// LinkedIn OAuth scopes - Using only basic profile for now
+// LinkedIn OAuth scopes - Full scopes for approved LinkedIn app
 const LINKEDIN_SCOPES = [
-  'r_basicprofile'  // Only use basic profile scope that doesn't require approval
+  'r_basicprofile',  // Basic profile information
+  'r_emailaddress'   // Email address (requires approved LinkedIn app)
 ].join(' ');
 
 export interface LinkedInProfile {
