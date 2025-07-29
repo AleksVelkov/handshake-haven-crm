@@ -5,10 +5,11 @@ import { pool } from '../index.js';
 const LINKEDIN_API_BASE = 'https://api.linkedin.com/v2';
 const LINKEDIN_AUTH_BASE = 'https://www.linkedin.com/oauth/v2';
 
-// LinkedIn OAuth scopes - Full scopes for approved LinkedIn app
+// LinkedIn OAuth scopes - OpenID Connect scopes for approved LinkedIn app
 const LINKEDIN_SCOPES = [
-  'r_basicprofile',  // Basic profile information
-  'r_emailaddress'   // Email address (requires approved LinkedIn app)
+  'openid',     // OpenID Connect scope
+  'profile',    // Basic profile information
+  'email'       // Email address
 ].join(' ');
 
 export interface LinkedInProfile {
@@ -184,37 +185,35 @@ export class LinkedInService {
   // Profile Methods
   async getProfile(accessToken: string): Promise<LinkedInProfile> {
     try {
-      // Use current LinkedIn API v2 endpoint for basic profile with r_basicprofile scope
-      const response = await this.apiClient.get('/me', {
+      // Use OpenID Connect userinfo endpoint for profile with OpenID Connect scopes
+      const response = await this.apiClient.get('/userinfo', {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
       });
 
-      console.log('LinkedIn profile response:', JSON.stringify(response.data, null, 2));
+      console.log('LinkedIn OpenID Connect profile response:', JSON.stringify(response.data, null, 2));
 
-      // Transform the response to match our interface
+      // Transform the OpenID Connect response to match our interface
       const profileData = response.data;
       const profile: LinkedInProfile = {
-        id: profileData.id,
+        id: profileData.sub, // 'sub' is the user ID in OpenID Connect
         firstName: {
-          localized: profileData.firstName?.localized || { 'en_US': 'Unknown' }
+          localized: { 'en_US': profileData.given_name || 'Unknown' }
         },
         lastName: {
-          localized: profileData.lastName?.localized || { 'en_US': 'Unknown' }
+          localized: { 'en_US': profileData.family_name || 'Unknown' }
         },
-        profilePicture: profileData.profilePicture ? {
-          displayImage: profileData.profilePicture.displayImage
+        profilePicture: profileData.picture ? {
+          displayImage: profileData.picture
         } : undefined,
-        headline: profileData.headline ? {
-          localized: profileData.headline.localized
-        } : undefined,
-        vanityName: profileData.vanityName
+        headline: undefined, // Not available in OpenID Connect basic profile
+        vanityName: undefined // Not available in OpenID Connect basic profile
       };
 
       return profile;
     } catch (error) {
-      console.error('LinkedIn profile fetch error:', error);
+      console.error('LinkedIn OpenID Connect profile fetch error:', error);
       if (error && typeof error === 'object' && 'response' in error) {
         const axiosError = error as any;
         console.error('Response status:', axiosError.response?.status);
@@ -226,23 +225,23 @@ export class LinkedInService {
 
   async getEmailAddress(accessToken: string): Promise<string> {
     try {
-      // Use current LinkedIn API v2 for email with r_emailaddress scope
-      const response = await this.apiClient.get('/emailAddress?q=members&projection=(elements*(handle~))', {
+      // Use OpenID Connect userinfo endpoint for email with 'email' scope
+      const response = await this.apiClient.get('/userinfo', {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
       });
 
-      console.log('LinkedIn email response:', JSON.stringify(response.data, null, 2));
+      console.log('LinkedIn OpenID Connect email response:', JSON.stringify(response.data, null, 2));
 
-      const email = response.data?.elements?.[0]?.['handle~']?.emailAddress;
+      const email = response.data?.email;
       if (!email) {
-        throw new Error('No email address found');
+        throw new Error('No email address found in userinfo response');
       }
 
       return email;
     } catch (error) {
-      console.error('LinkedIn email fetch error:', error);
+      console.error('LinkedIn OpenID Connect email fetch error:', error);
       if (error && typeof error === 'object' && 'response' in error) {
         const axiosError = error as any;
         console.error('Response status:', axiosError.response?.status);
@@ -250,9 +249,9 @@ export class LinkedInService {
         
         // Provide more specific error messages
         if (axiosError.response?.status === 403) {
-          throw new Error('Access denied - ensure r_emailaddress permission is granted');
+          throw new Error('Access denied - ensure email scope is granted in OpenID Connect');
         } else if (axiosError.response?.status === 404) {
-          throw new Error('Email endpoint not found - check API permissions');
+          throw new Error('Userinfo endpoint not found - check OpenID Connect configuration');
         }
       }
       throw new Error('Failed to fetch LinkedIn email address');
