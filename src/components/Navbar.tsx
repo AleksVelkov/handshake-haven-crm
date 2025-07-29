@@ -12,7 +12,12 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/context/AuthContext";
 import { User, LogOut, Settings } from "lucide-react";
 
-const Navbar = () => {
+interface NavbarProps {
+  currentView?: string;
+  onViewChange?: (view: string) => void;
+}
+
+const Navbar = ({ currentView, onViewChange }: NavbarProps) => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const isDashboard = location.pathname === '/dashboard';
@@ -42,26 +47,53 @@ const Navbar = () => {
             </div>
           )}
 
-          {isDashboard && (
+          {isDashboard && onViewChange && (
             <div className="hidden md:flex items-center gap-8">
-              <Link to="/dashboard" className="text-primary font-medium">
+              <button 
+                onClick={() => onViewChange('dashboard')}
+                className={`font-medium transition-smooth ${
+                  currentView === 'dashboard' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
                 Dashboard
-              </Link>
-              <span className="text-muted-foreground hover:text-foreground transition-smooth cursor-pointer">
+              </button>
+              <button 
+                onClick={() => onViewChange('contacts')}
+                className={`font-medium transition-smooth ${
+                  currentView === 'contacts' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
                 Contacts
-              </span>
-              <span className="text-muted-foreground hover:text-foreground transition-smooth cursor-pointer">
+              </button>
+              <button 
+                onClick={() => onViewChange('campaigns')}
+                className={`font-medium transition-smooth ${
+                  currentView === 'campaigns' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
                 Campaigns
-              </span>
-              <span className="text-muted-foreground hover:text-foreground transition-smooth cursor-pointer">
+              </button>
+              <button 
+                onClick={() => onViewChange('view-templates')}
+                className={`font-medium transition-smooth ${
+                  currentView === 'view-templates' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
                 Templates
-              </span>
+              </button>
             </div>
           )}
           
           <div className="flex items-center gap-4">
             {user ? (
               <>
+                {!isDashboard && (
+                  <Link to="/dashboard">
+                    <Button variant="secondary">
+                      Dashboard
+                    </Button>
+                  </Link>
+                )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-10 w-10 rounded-full">

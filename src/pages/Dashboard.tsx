@@ -6,6 +6,8 @@ import ContactCard from "@/components/ContactCard";
 import LinkedInConnection from "@/components/LinkedInConnection";
 import CampaignBuilder from "@/components/CampaignBuilder";
 import TemplateManager from "@/components/TemplateManager";
+import ContactsManager from "@/components/ContactsManager";
+import CampaignsManager from "@/components/CampaignsManager";
 import { Users, Mail, Bell, CheckCircle, AlertCircle, Link as LinkIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/services/api";
@@ -18,7 +20,7 @@ const Dashboard = () => {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
-  const [currentView, setCurrentView] = useState<'dashboard' | 'create-campaign' | 'view-templates'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'contacts' | 'campaigns' | 'create-campaign' | 'view-templates'>('dashboard');
 
   // Handle LinkedIn OAuth callback
   useEffect(() => {
@@ -91,7 +93,7 @@ const Dashboard = () => {
   const recentContacts = contacts.slice(0, 4);
 
   // Handle view changes
-  const handleViewChange = (view: 'dashboard' | 'create-campaign' | 'view-templates') => {
+  const handleViewChange = (view: 'dashboard' | 'contacts' | 'campaigns' | 'create-campaign' | 'view-templates') => {
     setCurrentView(view);
   };
 
@@ -99,44 +101,42 @@ const Dashboard = () => {
   if (contactsLoading || statsLoading) {
     return (
       <div className="min-h-screen bg-gradient-card">
-        <Navbar />
+        <Navbar currentView={currentView} onViewChange={handleViewChange} />
         <div className="max-w-7xl mx-auto px-6 py-8 pt-24">
-          <Card className="shadow-medium">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3"></div>
-                <p>Loading dashboard data...</p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="text-muted-foreground mt-4">Loading your dashboard...</p>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Only show error after all retries have failed
-  if (contactsIsError || statsIsError) {
+  // Show error state if both queries failed
+  if (contactsIsError && statsIsError) {
     return (
       <div className="min-h-screen bg-gradient-card">
-        <Navbar />
+        <Navbar currentView={currentView} onViewChange={handleViewChange} />
         <div className="max-w-7xl mx-auto px-6 py-8 pt-24">
-          <Card className="shadow-medium">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-center text-red-500">
-                <AlertCircle className="w-6 h-6 mr-2" />
-                <div>
-                  <p className="font-semibold">Error loading dashboard data</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {contactsError?.message || statsError?.message || 'Please check your database connection.'}
-                  </p>
-                  <Button 
-                    onClick={() => window.location.reload()} 
-                    className="mt-3"
-                    variant="outline"
-                  >
-                    Retry
-                  </Button>
+          <Card>
+            <CardContent className="p-8">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="w-8 h-8 text-red-600" />
                 </div>
+                <h3 className="text-lg font-semibold text-card-foreground mb-2">
+                  Unable to load dashboard data
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  {contactsError?.message || statsError?.message || 'Please check your database connection.'}
+                </p>
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  className="mt-3"
+                  variant="outline"
+                >
+                  Retry
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -147,7 +147,18 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-card">
-      <Navbar />
+      <Navbar currentView={currentView} onViewChange={handleViewChange} />
+      
+      {currentView === 'contacts' && (
+        <ContactsManager onBack={() => handleViewChange('dashboard')} />
+      )}
+      
+      {currentView === 'campaigns' && (
+        <CampaignsManager 
+          onBack={() => handleViewChange('dashboard')} 
+          onCreateCampaign={() => handleViewChange('create-campaign')}
+        />
+      )}
       
       {currentView === 'create-campaign' && (
         <CampaignBuilder onBack={() => handleViewChange('dashboard')} />
@@ -191,9 +202,9 @@ const Dashboard = () => {
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-4 mb-8">
-            <Button variant="hero">
+            <Button variant="hero" onClick={() => handleViewChange('contacts')}>
               <Users className="w-4 h-4 mr-2" />
-              Add New Contact
+              Manage Contacts
             </Button>
             <Button variant="secondary" onClick={() => handleViewChange('create-campaign')}>
               <Mail className="w-4 h-4 mr-2" />
@@ -203,54 +214,58 @@ const Dashboard = () => {
               <Bell className="w-4 h-4 mr-2" />
               View Templates
             </Button>
+            <Button variant="outline" onClick={() => handleViewChange('campaigns')}>
+              <CheckCircle className="w-4 h-4 mr-2" />
+              View Campaigns
+            </Button>
           </div>
 
           {/* Integrations Section */}
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
               <LinkIcon className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-semibold text-foreground">Integrations</h2>
+              <h2 className="text-xl font-semibold text-foreground">LinkedIn Integration</h2>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <LinkedInConnection />
-              <Card className="flex items-center justify-center p-6 border-2 border-dashed border-border">
-                <div className="text-center">
-                  <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Mail className="w-6 h-6 text-muted-foreground" />
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-2">Email Integration</p>
-                  <p className="text-xs text-muted-foreground">Coming Soon</p>
-                </div>
-              </Card>
-            </div>
+            <LinkedInConnection />
           </div>
 
           {/* Recent Contacts */}
-          <Card className="shadow-medium">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl">Recent Contacts</CardTitle>
-                <Badge variant="outline">{recentContacts.length} contacts</Badge>
+          {recentContacts.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-foreground">Recent Contacts</h2>
+                <Button variant="ghost" onClick={() => handleViewChange('contacts')}>
+                  View All
+                </Button>
               </div>
-            </CardHeader>
-            <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {contactsLoading ? (
-                  <div className="col-span-4 text-center py-8">
-                    <p className="text-muted-foreground">Loading contacts...</p>
-                  </div>
-                ) : recentContacts.length > 0 ? (
-                  recentContacts.map((contact) => (
-                    <ContactCard key={contact.id} contact={contact} />
-                  ))
-                ) : (
-                  <div className="col-span-4 text-center py-8">
-                    <p className="text-muted-foreground">No contacts yet. Add your first contact to get started!</p>
-                  </div>
-                )}
+                {recentContacts.map((contact) => (
+                  <ContactCard key={contact.id} contact={contact} />
+                ))}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {recentContacts.length === 0 && (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-card-foreground mb-2">
+                  No contacts yet
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  Start building your network by adding your first contact or connecting your LinkedIn account.
+                </p>
+                <div className="flex gap-3 justify-center">
+                  <Button onClick={() => handleViewChange('contacts')}>
+                    <Users className="w-4 h-4 mr-2" />
+                    Add Contact
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
     </div>
