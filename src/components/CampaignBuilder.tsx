@@ -425,7 +425,7 @@ const CampaignBuilder: React.FC<CampaignBuilderProps> = ({ onBack, editCampaignI
                 className="mt-1"
               />
               <div className="text-xs text-muted-foreground mt-1">
-                Available variables: {{`{firstName}`}}, {{`{lastName}`}}, {{`{company}`}}, {{`{email}`}}
+                Available variables: firstName, lastName, company, email (use with double curly braces)
               </div>
             </div>
           </CardContent>
