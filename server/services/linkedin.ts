@@ -5,11 +5,10 @@ import { pool } from '../index.js';
 const LINKEDIN_API_BASE = 'https://api.linkedin.com/v2';
 const LINKEDIN_AUTH_BASE = 'https://www.linkedin.com/oauth/v2';
 
-// LinkedIn OAuth scopes - Basic scopes that don't require special approval
+// LinkedIn OAuth scopes - Updated to current API standards
 const LINKEDIN_SCOPES = [
-  'openid',
-  'profile',
-  'email'
+  'r_basicprofile',  // Current scope for basic profile (replaces r_liteprofile)
+  'r_emailaddress'
 ].join(' ');
 
 export interface LinkedInProfile {
@@ -120,21 +119,33 @@ export class LinkedInService {
     expires_in: number;
   }> {
     try {
-      const response = await axios.post(`${LINKEDIN_AUTH_BASE}/accessToken`, {
-        grant_type: 'authorization_code',
-        code,
-        client_id: process.env.LINKEDIN_CLIENT_ID,
-        client_secret: process.env.LINKEDIN_CLIENT_SECRET,
-        redirect_uri: process.env.LINKEDIN_REDIRECT_URI,
-      }, {
+      // Prepare form-encoded data for LinkedIn OAuth token exchange
+      const params = new URLSearchParams();
+      params.append('grant_type', 'authorization_code');
+      params.append('code', code);
+      params.append('client_id', process.env.LINKEDIN_CLIENT_ID!);
+      params.append('client_secret', process.env.LINKEDIN_CLIENT_SECRET!);
+      params.append('redirect_uri', process.env.LINKEDIN_REDIRECT_URI!);
+
+      const response = await axios.post(`${LINKEDIN_AUTH_BASE}/accessToken`, params, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
       });
 
+      console.log('LinkedIn token exchange successful:', {
+        access_token: response.data.access_token ? 'present' : 'missing',
+        expires_in: response.data.expires_in
+      });
+
       return response.data;
     } catch (error) {
       console.error('LinkedIn token exchange error:', error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as any;
+        console.error('Token exchange failed - Status:', axiosError.response?.status);
+        console.error('Token exchange failed - Data:', JSON.stringify(axiosError.response?.data, null, 2));
+      }
       throw new Error('Failed to exchange authorization code for access token');
     }
   }
@@ -145,12 +156,14 @@ export class LinkedInService {
     expires_in: number;
   }> {
     try {
-      const response = await axios.post(`${LINKEDIN_AUTH_BASE}/accessToken`, {
-        grant_type: 'refresh_token',
-        refresh_token: refreshToken,
-        client_id: process.env.LINKEDIN_CLIENT_ID,
-        client_secret: process.env.LINKEDIN_CLIENT_SECRET,
-      }, {
+      // Prepare form-encoded data for LinkedIn OAuth token refresh
+      const params = new URLSearchParams();
+      params.append('grant_type', 'refresh_token');
+      params.append('refresh_token', refreshToken);
+      params.append('client_id', process.env.LINKEDIN_CLIENT_ID!);
+      params.append('client_secret', process.env.LINKEDIN_CLIENT_SECRET!);
+
+      const response = await axios.post(`${LINKEDIN_AUTH_BASE}/accessToken`, params, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
@@ -159,6 +172,11 @@ export class LinkedInService {
       return response.data;
     } catch (error) {
       console.error('LinkedIn token refresh error:', error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as any;
+        console.error('Token refresh failed - Status:', axiosError.response?.status);
+        console.error('Token refresh failed - Data:', JSON.stringify(axiosError.response?.data, null, 2));
+      }
       throw new Error('Failed to refresh access token');
     }
   }
@@ -166,12 +184,14 @@ export class LinkedInService {
   // Profile Methods
   async getProfile(accessToken: string): Promise<LinkedInProfile> {
     try {
-      // Use LinkedIn API v2 for basic profile with r_liteprofile scope
-      const response = await this.apiClient.get('/v2/people/(id~)', {
+      // Use current LinkedIn API v2 endpoint for basic profile with r_basicprofile scope
+      const response = await this.apiClient.get('/me', {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
       });
+
+      console.log('LinkedIn profile response:', JSON.stringify(response.data, null, 2));
 
       // Transform the response to match our interface
       const profileData = response.data;
@@ -195,18 +215,25 @@ export class LinkedInService {
       return profile;
     } catch (error) {
       console.error('LinkedIn profile fetch error:', error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as any;
+        console.error('Response status:', axiosError.response?.status);
+        console.error('Response data:', JSON.stringify(axiosError.response?.data, null, 2));
+      }
       throw new Error('Failed to fetch LinkedIn profile');
     }
   }
 
   async getEmailAddress(accessToken: string): Promise<string> {
     try {
-      // Use LinkedIn API v2 for email with r_emailaddress scope
-      const response = await this.apiClient.get('/v2/emailAddress?q=members&projection=(elements*(handle~))', {
+      // Use current LinkedIn API v2 for email with r_emailaddress scope
+      const response = await this.apiClient.get('/emailAddress?q=members&projection=(elements*(handle~))', {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
       });
+
+      console.log('LinkedIn email response:', JSON.stringify(response.data, null, 2));
 
       const email = response.data?.elements?.[0]?.['handle~']?.emailAddress;
       if (!email) {
@@ -216,6 +243,18 @@ export class LinkedInService {
       return email;
     } catch (error) {
       console.error('LinkedIn email fetch error:', error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as any;
+        console.error('Response status:', axiosError.response?.status);
+        console.error('Response data:', JSON.stringify(axiosError.response?.data, null, 2));
+        
+        // Provide more specific error messages
+        if (axiosError.response?.status === 403) {
+          throw new Error('Access denied - ensure r_emailaddress permission is granted');
+        } else if (axiosError.response?.status === 404) {
+          throw new Error('Email endpoint not found - check API permissions');
+        }
+      }
       throw new Error('Failed to fetch LinkedIn email address');
     }
   }
