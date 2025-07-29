@@ -43,44 +43,17 @@ export const createTables = async () => {
   }
   
   try {
-    // Users table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        first_name VARCHAR(100) NOT NULL,
-        last_name VARCHAR(100) NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+    // Users table (from User.ts model)
+    await pool.query(CREATE_USERS_TABLE);
 
-    // Contacts table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS contacts (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        first_name VARCHAR(100) NOT NULL,
-        last_name VARCHAR(100) NOT NULL,
-        email VARCHAR(255),
-        phone VARCHAR(50),
-        company VARCHAR(200),
-        position VARCHAR(200),
-        linkedin_url VARCHAR(500),
-        notes TEXT,
-        tags TEXT[],
-        status VARCHAR(50) DEFAULT 'active',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+    // Contacts table (from Contact.ts model)
+    await pool.query(CREATE_CONTACTS_TABLE);
 
     // LinkedIn connections table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS linkedin_connections (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL,
         linkedin_user_id VARCHAR(255) UNIQUE NOT NULL,
         access_token TEXT NOT NULL,
         refresh_token TEXT,
@@ -95,15 +68,16 @@ export const createTables = async () => {
         is_active BOOLEAN DEFAULT true,
         last_sync TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
 
     // Campaigns table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS campaigns (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL,
         name VARCHAR(255) NOT NULL,
         description TEXT,
         type VARCHAR(50) NOT NULL CHECK (type IN ('linkedin', 'email', 'mixed')),
@@ -112,75 +86,80 @@ export const createTables = async () => {
         interval_days INTEGER NOT NULL DEFAULT 1,
         start_date TIMESTAMP,
         end_date TIMESTAMP,
-        target_audience JSONB, -- Store targeting criteria
-        settings JSONB, -- Store campaign-specific settings
+        target_audience JSONB,
+        settings JSONB,
         stats JSONB DEFAULT '{"sent": 0, "delivered": 0, "opened": 0, "replied": 0}',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
 
-    // Campaign messages table (templates for each step in the campaign)
+    // Campaign messages table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS campaign_messages (
-        id SERIAL PRIMARY KEY,
-        campaign_id INTEGER REFERENCES campaigns(id) ON DELETE CASCADE,
-        sequence_number INTEGER NOT NULL, -- 1, 2, 3... for message order
-        subject VARCHAR(255), -- For email campaigns
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        campaign_id UUID NOT NULL,
+        sequence_number INTEGER NOT NULL,
+        subject VARCHAR(255),
         message_body TEXT NOT NULL,
         message_type VARCHAR(50) NOT NULL CHECK (message_type IN ('linkedin', 'email')),
-        personalization_fields JSONB, -- Store merge fields like {{firstName}}, {{company}}
+        personalization_fields JSONB,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE,
         UNIQUE(campaign_id, sequence_number, message_type)
       )
     `);
 
-    // Campaign recipients table (who will receive the campaign)
+    // Campaign recipients table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS campaign_recipients (
-        id SERIAL PRIMARY KEY,
-        campaign_id INTEGER REFERENCES campaigns(id) ON DELETE CASCADE,
-        contact_id INTEGER REFERENCES contacts(id) ON DELETE CASCADE,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        campaign_id UUID NOT NULL,
+        contact_id UUID NOT NULL,
         status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'delivered', 'opened', 'replied', 'bounced', 'failed')),
         current_message_sequence INTEGER DEFAULT 1,
         last_message_sent_at TIMESTAMP,
         next_message_scheduled_at TIMESTAMP,
-        personalized_data JSONB, -- Store personalized data for this recipient
-        interaction_history JSONB DEFAULT '[]', -- Store interaction history
+        personalized_data JSONB,
+        interaction_history JSONB DEFAULT '[]',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE,
+        FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE,
         UNIQUE(campaign_id, contact_id)
       )
     `);
 
-    // Message templates table (reusable templates)
+    // Message templates table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS message_templates (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL,
         name VARCHAR(255) NOT NULL,
         description TEXT,
-        category VARCHAR(100), -- 'outreach', 'follow-up', 'cold-email', etc.
+        category VARCHAR(100),
         message_type VARCHAR(50) NOT NULL CHECK (message_type IN ('linkedin', 'email')),
-        subject VARCHAR(255), -- For email templates
+        subject VARCHAR(255),
         message_body TEXT NOT NULL,
-        personalization_fields JSONB, -- Available merge fields
+        personalization_fields JSONB,
         usage_count INTEGER DEFAULT 0,
-        is_public BOOLEAN DEFAULT false, -- Share with other users
+        is_public BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
 
-    // LinkedIn messages table (for tracking actual sent messages)
+    // LinkedIn messages table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS linkedin_messages (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        linkedin_connection_id INTEGER REFERENCES linkedin_connections(id),
-        campaign_id INTEGER REFERENCES campaigns(id) ON DELETE SET NULL,
-        contact_id INTEGER REFERENCES contacts(id) ON DELETE CASCADE,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL,
+        linkedin_connection_id UUID,
+        campaign_id UUID,
+        contact_id UUID NOT NULL,
         conversation_id VARCHAR(255),
         message_id VARCHAR(255),
         sender_id VARCHAR(255),
@@ -192,6 +171,10 @@ export const createTables = async () => {
         read_at TIMESTAMP,
         raw_data JSONB,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (linkedin_connection_id) REFERENCES linkedin_connections(id) ON DELETE SET NULL,
+        FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE SET NULL,
+        FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE,
         UNIQUE(message_id)
       )
     `);
@@ -199,9 +182,9 @@ export const createTables = async () => {
     // LinkedIn posts table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS linkedin_posts (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        linkedin_connection_id INTEGER REFERENCES linkedin_connections(id),
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL,
+        linkedin_connection_id UUID,
         post_id VARCHAR(255) UNIQUE NOT NULL,
         content TEXT NOT NULL,
         visibility VARCHAR(50) DEFAULT 'PUBLIC',
@@ -210,7 +193,9 @@ export const createTables = async () => {
         engagement_data JSONB,
         post_url TEXT,
         raw_data JSONB,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (linkedin_connection_id) REFERENCES linkedin_connections(id) ON DELETE SET NULL
       )
     `);
 

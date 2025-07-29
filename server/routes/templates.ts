@@ -74,57 +74,53 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
     });
   } catch (error) {
     console.error('Error fetching templates:', error);
-    res.status(500).json({
-      error: error instanceof Error ? error.message : 'Failed to fetch templates'
-    });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Get template categories and stats
+// Get template statistics and categories
 router.get('/stats', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!pool) {
       return res.status(500).json({ error: 'Database connection not available' });
     }
 
-    // Get categories with counts
+    const userId = req.user!.id;
+
+    // Get categories with template counts
     const categoriesResult = await pool.query(`
       SELECT 
         category,
-        message_type,
-        COUNT(*) as count,
-        AVG(usage_count) as avg_usage
-      FROM message_templates 
-      WHERE (user_id = $1 OR is_public = true)
-      GROUP BY category, message_type
-      ORDER BY count DESC
-    `, [req.user!.id]);
+        COUNT(*) as template_count,
+        SUM(usage_count) as total_usage
+      FROM message_templates
+      WHERE user_id = $1 OR is_public = true
+      GROUP BY category
+      ORDER BY template_count DESC
+    `, [userId]);
 
-    // Get total stats
+    // Get overall stats
     const statsResult = await pool.query(`
       SELECT 
         COUNT(*) as total_templates,
-        COUNT(CASE WHEN user_id = $1 THEN 1 END) as user_templates,
+        SUM(usage_count) as total_usage,
         COUNT(CASE WHEN is_public = true THEN 1 END) as public_templates,
-        SUM(usage_count) as total_usage
-      FROM message_templates 
-      WHERE (user_id = $1 OR is_public = true)
-    `, [req.user!.id]);
+        COUNT(CASE WHEN user_id = $1 THEN 1 END) as user_templates
+      FROM message_templates
+      WHERE user_id = $1 OR is_public = true
+    `, [userId]);
 
     res.json({
-      success: true,
       categories: categoriesResult.rows,
       stats: statsResult.rows[0]
     });
   } catch (error) {
     console.error('Error fetching template stats:', error);
-    res.status(500).json({
-      error: error instanceof Error ? error.message : 'Failed to fetch template stats'
-    });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Get a specific template
+// Get a specific template by ID
 router.get('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!pool) {
@@ -132,25 +128,21 @@ router.get('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
     }
 
     const { id } = req.params;
+    const userId = req.user!.id;
 
     const result = await pool.query(`
       SELECT * FROM message_templates 
       WHERE id = $1 AND (user_id = $2 OR is_public = true)
-    `, [id, req.user!.id]);
+    `, [id, userId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Template not found' });
     }
 
-    res.json({
-      success: true,
-      template: result.rows[0]
-    });
+    res.json({ template: result.rows[0] });
   } catch (error) {
     console.error('Error fetching template:', error);
-    res.status(500).json({
-      error: error instanceof Error ? error.message : 'Failed to fetch template'
-    });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -172,41 +164,37 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
       is_public
     } = req.body;
 
-    // Validate required fields
+    const userId = req.user!.id;
+
     if (!name || !message_type || !message_body) {
-      return res.status(400).json({
-        error: 'Missing required fields: name, message_type, message_body'
-      });
+      return res.status(400).json({ error: 'Missing required fields: name, message_type, message_body' });
     }
 
     const result = await pool.query(`
       INSERT INTO message_templates (
-        user_id, name, description, category, message_type, 
-        subject, message_body, personalization_fields, is_public
+        user_id, name, description, category, message_type, subject, 
+        message_body, personalization_fields, is_public
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `, [
-      req.user!.id,
+      userId,
       name,
       description,
       category,
       message_type,
       subject,
       message_body,
-      JSON.stringify(personalization_fields || {}),
+      personalization_fields ? JSON.stringify(personalization_fields) : null,
       is_public || false
     ]);
 
     res.status(201).json({
-      success: true,
       template: result.rows[0],
       message: 'Template created successfully'
     });
   } catch (error) {
     console.error('Error creating template:', error);
-    res.status(500).json({
-      error: error instanceof Error ? error.message : 'Failed to create template'
-    });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -218,6 +206,7 @@ router.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
     }
 
     const { id } = req.params;
+    const userId = req.user!.id;
     const {
       name,
       description,
@@ -252,23 +241,20 @@ router.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
       personalization_fields ? JSON.stringify(personalization_fields) : null,
       is_public,
       id,
-      req.user!.id
+      userId
     ]);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Template not found' });
+      return res.status(404).json({ error: 'Template not found or not owned by user' });
     }
 
     res.json({
-      success: true,
       template: result.rows[0],
       message: 'Template updated successfully'
     });
   } catch (error) {
     console.error('Error updating template:', error);
-    res.status(500).json({
-      error: error instanceof Error ? error.message : 'Failed to update template'
-    });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -280,29 +266,25 @@ router.delete('/:id', authenticateToken, async (req: AuthenticatedRequest, res: 
     }
 
     const { id } = req.params;
+    const userId = req.user!.id;
 
     const result = await pool.query(
       'DELETE FROM message_templates WHERE id = $1 AND user_id = $2 RETURNING *',
-      [id, req.user!.id]
+      [id, userId]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Template not found' });
+      return res.status(404).json({ error: 'Template not found or not owned by user' });
     }
 
-    res.json({
-      success: true,
-      message: 'Template deleted successfully'
-    });
+    res.json({ message: 'Template deleted successfully' });
   } catch (error) {
     console.error('Error deleting template:', error);
-    res.status(500).json({
-      error: error instanceof Error ? error.message : 'Failed to delete template'
-    });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Increment template usage count
+// Use a template (increment usage count)
 router.post('/:id/use', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!pool) {
@@ -310,29 +292,26 @@ router.post('/:id/use', authenticateToken, async (req: AuthenticatedRequest, res
     }
 
     const { id } = req.params;
+    const userId = req.user!.id;
 
     const result = await pool.query(`
-      UPDATE message_templates SET
-        usage_count = usage_count + 1,
-        updated_at = CURRENT_TIMESTAMP
+      UPDATE message_templates 
+      SET usage_count = usage_count + 1, updated_at = CURRENT_TIMESTAMP
       WHERE id = $1 AND (user_id = $2 OR is_public = true)
       RETURNING *
-    `, [id, req.user!.id]);
+    `, [id, userId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Template not found' });
     }
 
     res.json({
-      success: true,
       template: result.rows[0],
       message: 'Template usage recorded'
     });
   } catch (error) {
-    console.error('Error recording template usage:', error);
-    res.status(500).json({
-      error: error instanceof Error ? error.message : 'Failed to record template usage'
-    });
+    console.error('Error using template:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
