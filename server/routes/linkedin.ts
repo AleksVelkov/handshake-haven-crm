@@ -106,14 +106,16 @@ router.get('/callback', async (req: Request, res: Response) => {
     const profile = await linkedinService.getProfile(tokenData.access_token);
     console.log('Profile fetched:', profile.id);
     
-    // Get email
+    // Get email (optional - don't fail if not available)
     let email: string | undefined;
     try {
-      console.log('Fetching email address...');
+      console.log('Attempting to fetch email address...');
       email = await linkedinService.getEmailAddress(tokenData.access_token);
-      console.log('Email fetched:', email);
+      console.log('Email fetched successfully:', email);
     } catch (error) {
-      console.warn('Could not fetch email from LinkedIn:', error);
+      console.warn('Could not fetch email from LinkedIn (this is expected if r_emailaddress scope is not approved):', error);
+      // Don't treat email fetch failure as a critical error
+      email = undefined;
     }
 
     // Save connection
