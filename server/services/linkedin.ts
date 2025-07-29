@@ -10,6 +10,11 @@ const LINKEDIN_SCOPES = [
   'openid',     // OpenID Connect scope
   'profile',    // Basic profile information
   'email'       // Email address
+  
+  // TODO: Add these scopes after getting approval for additional LinkedIn products:
+  // 'r_1st_connections_size',  // Community Management API - for connections
+  // 'w_member_social',         // Community Management API - for social interactions  
+  // 'rw_ads',                  // Marketing API - for messaging capabilities
 ].join(' ');
 
 export interface LinkedInProfile {

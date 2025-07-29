@@ -4,11 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import Navbar from "@/components/Navbar";
 import ContactCard from "@/components/ContactCard";
 import LinkedInConnection from "@/components/LinkedInConnection";
+import CampaignBuilder from "@/components/CampaignBuilder";
+import TemplateManager from "@/components/TemplateManager";
 import { Users, Mail, Bell, CheckCircle, AlertCircle, Link as LinkIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/services/api";
 import { useAuth } from "@/context/AuthContext";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
@@ -16,6 +18,7 @@ const Dashboard = () => {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
+  const [currentView, setCurrentView] = useState<'dashboard' | 'create-campaign' | 'view-templates'>('dashboard');
 
   // Handle LinkedIn OAuth callback
   useEffect(() => {
@@ -87,6 +90,11 @@ const Dashboard = () => {
   // Get recent contacts (first 4)
   const recentContacts = contacts.slice(0, 4);
 
+  // Handle view changes
+  const handleViewChange = (view: 'dashboard' | 'create-campaign' | 'view-templates') => {
+    setCurrentView(view);
+  };
+
   // Show loading state while initial load or retrying
   if (contactsLoading || statsLoading) {
     return (
@@ -140,100 +148,111 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-card">
       <Navbar />
-      <div className="max-w-7xl mx-auto px-6 py-8 pt-24">{/* Added pt-24 for navbar spacing */}
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Welcome back, {user?.firstName}! 👋
-          </h1>
-          <p className="text-muted-foreground">
-            Here's what's happening with your connections today.
-          </p>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
-            <Card key={index} className="shadow-soft hover:shadow-medium transition-smooth">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{stat.title}</p>
-                    <p className="text-2xl font-bold text-card-foreground">{stat.value}</p>
-                    <p className="text-xs text-primary">{stat.change}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center">
-                    <stat.icon className="w-6 h-6 text-primary-foreground" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-4 mb-8">
-          <Button variant="hero">
-            <Users className="w-4 h-4 mr-2" />
-            Add New Contact
-          </Button>
-          <Button variant="secondary">
-            <Mail className="w-4 h-4 mr-2" />
-            Create Campaign
-          </Button>
-          <Button variant="outline">
-            <Bell className="w-4 h-4 mr-2" />
-            View Templates
-          </Button>
-        </div>
-
-        {/* Integrations Section */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <LinkIcon className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-semibold text-foreground">Integrations</h2>
+      
+      {currentView === 'create-campaign' && (
+        <CampaignBuilder onBack={() => handleViewChange('dashboard')} />
+      )}
+      
+      {currentView === 'view-templates' && (
+        <TemplateManager onBack={() => handleViewChange('dashboard')} />
+      )}
+      
+      {currentView === 'dashboard' && (
+        <div className="max-w-7xl mx-auto px-6 py-8 pt-24">{/* Added pt-24 for navbar spacing */}
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              Welcome back, {user?.firstName}! 👋
+            </h1>
+            <p className="text-muted-foreground">
+              Here's what's happening with your connections today.
+            </p>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <LinkedInConnection />
-            <Card className="flex items-center justify-center p-6 border-2 border-dashed border-border">
-              <div className="text-center">
-                <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Mail className="w-6 h-6 text-muted-foreground" />
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {stats.map((stat, index) => (
+              <Card key={index} className="shadow-soft hover:shadow-medium transition-smooth">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{stat.title}</p>
+                      <p className="text-2xl font-bold text-card-foreground">{stat.value}</p>
+                      <p className="text-xs text-primary">{stat.change}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center">
+                      <stat.icon className="w-6 h-6 text-primary-foreground" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-4 mb-8">
+            <Button variant="hero">
+              <Users className="w-4 h-4 mr-2" />
+              Add New Contact
+            </Button>
+            <Button variant="secondary" onClick={() => handleViewChange('create-campaign')}>
+              <Mail className="w-4 h-4 mr-2" />
+              Create Campaign
+            </Button>
+            <Button variant="outline" onClick={() => handleViewChange('view-templates')}>
+              <Bell className="w-4 h-4 mr-2" />
+              View Templates
+            </Button>
+          </div>
+
+          {/* Integrations Section */}
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <LinkIcon className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-semibold text-foreground">Integrations</h2>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <LinkedInConnection />
+              <Card className="flex items-center justify-center p-6 border-2 border-dashed border-border">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Mail className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-2">Email Integration</p>
+                  <p className="text-xs text-muted-foreground">Coming Soon</p>
                 </div>
-                <p className="text-sm text-muted-foreground mb-2">Email Integration</p>
-                <p className="text-xs text-muted-foreground">Coming Soon</p>
+              </Card>
+            </div>
+          </div>
+
+          {/* Recent Contacts */}
+          <Card className="shadow-medium">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl">Recent Contacts</CardTitle>
+                <Badge variant="outline">{recentContacts.length} contacts</Badge>
               </div>
-            </Card>
-          </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {contactsLoading ? (
+                  <div className="col-span-4 text-center py-8">
+                    <p className="text-muted-foreground">Loading contacts...</p>
+                  </div>
+                ) : recentContacts.length > 0 ? (
+                  recentContacts.map((contact) => (
+                    <ContactCard key={contact.id} contact={contact} />
+                  ))
+                ) : (
+                  <div className="col-span-4 text-center py-8">
+                    <p className="text-muted-foreground">No contacts yet. Add your first contact to get started!</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
-
-        {/* Recent Contacts */}
-        <Card className="shadow-medium">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xl">Recent Contacts</CardTitle>
-              <Badge variant="outline">{recentContacts.length} contacts</Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {contactsLoading ? (
-                <div className="col-span-4 text-center py-8">
-                  <p className="text-muted-foreground">Loading contacts...</p>
-                </div>
-              ) : recentContacts.length > 0 ? (
-                recentContacts.map((contact) => (
-                  <ContactCard key={contact.id} contact={contact} />
-                ))
-              ) : (
-                <div className="col-span-4 text-center py-8">
-                  <p className="text-muted-foreground">No contacts yet. Add your first contact to get started!</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      )}
     </div>
   );
 };

@@ -53,6 +53,139 @@ export interface ContactStats {
   messages_sent_this_week: number;
 }
 
+// Campaign interfaces
+export interface Campaign {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  type: 'linkedin' | 'email' | 'mixed';
+  status: 'draft' | 'active' | 'paused' | 'completed' | 'cancelled';
+  message_count: number;
+  interval_days: number;
+  start_date?: string;
+  end_date?: string;
+  target_audience?: any;
+  settings?: any;
+  stats?: {
+    sent: number;
+    delivered: number;
+    opened: number;
+    replied: number;
+  };
+  created_at: string;
+  updated_at: string;
+  recipient_count?: number;
+  sent_count?: number;
+}
+
+export interface CampaignMessage {
+  id: string;
+  campaign_id: string;
+  sequence_number: number;
+  subject?: string;
+  message_body: string;
+  message_type: 'linkedin' | 'email';
+  personalization_fields?: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CampaignRecipient {
+  id: string;
+  campaign_id: string;
+  contact_id: string;
+  status: 'pending' | 'sent' | 'delivered' | 'opened' | 'replied' | 'bounced' | 'failed';
+  current_message_sequence: number;
+  last_message_sent_at?: string;
+  next_message_scheduled_at?: string;
+  personalized_data?: any;
+  interaction_history?: any[];
+  created_at: string;
+  updated_at: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  company?: string;
+}
+
+export interface CreateCampaignRequest {
+  name: string;
+  description?: string;
+  type: 'linkedin' | 'email' | 'mixed';
+  message_count: number;
+  interval_days?: number;
+  start_date?: string;
+  target_audience?: any;
+  settings?: any;
+  messages: {
+    sequence_number: number;
+    subject?: string;
+    message_body: string;
+    message_type: 'linkedin' | 'email';
+    personalization_fields?: any;
+  }[];
+}
+
+export interface UpdateCampaignRequest {
+  name?: string;
+  description?: string;
+  type?: 'linkedin' | 'email' | 'mixed';
+  status?: 'draft' | 'active' | 'paused' | 'completed' | 'cancelled';
+  message_count?: number;
+  interval_days?: number;
+  start_date?: string;
+  target_audience?: any;
+  settings?: any;
+  messages?: {
+    sequence_number: number;
+    subject?: string;
+    message_body: string;
+    message_type: 'linkedin' | 'email';
+    personalization_fields?: any;
+  }[];
+}
+
+// Template interfaces
+export interface MessageTemplate {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  message_type: 'linkedin' | 'email';
+  subject?: string;
+  message_body: string;
+  personalization_fields?: any;
+  usage_count: number;
+  is_public: boolean;
+  created_at: string;
+  updated_at: string;
+  ownership?: 'owner' | 'public';
+}
+
+export interface CreateTemplateRequest {
+  name: string;
+  description?: string;
+  category?: string;
+  message_type: 'linkedin' | 'email';
+  subject?: string;
+  message_body: string;
+  personalization_fields?: any;
+  is_public?: boolean;
+}
+
+export interface UpdateTemplateRequest {
+  name?: string;
+  description?: string;
+  category?: string;
+  message_type?: 'linkedin' | 'email';
+  subject?: string;
+  message_body?: string;
+  personalization_fields?: any;
+  is_public?: boolean;
+}
+
 // API utility functions
 class ApiClient {
   private getAuthHeaders(): Record<string, string> {
@@ -336,6 +469,177 @@ class ApiClient {
     unreadCount: number;
   }> {
     return this.request('/linkedin/messages/unread-count');
+  }
+
+  // Campaign API methods
+  async getCampaigns(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    type?: string;
+  }): Promise<{
+    campaigns: Campaign[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.type) queryParams.append('type', params.type);
+    
+    const query = queryParams.toString();
+    return this.request(`/campaigns${query ? `?${query}` : ''}`);
+  }
+
+  async getCampaign(id: string): Promise<{
+    campaign: Campaign & {
+      messages: CampaignMessage[];
+      recipients: CampaignRecipient[];
+    };
+  }> {
+    return this.request(`/campaigns/${id}`);
+  }
+
+  async createCampaign(data: CreateCampaignRequest): Promise<{
+    campaign: Campaign;
+    message: string;
+  }> {
+    return this.request('/campaigns', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCampaign(id: string, data: UpdateCampaignRequest): Promise<{
+    campaign: Campaign;
+    message: string;
+  }> {
+    return this.request(`/campaigns/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCampaign(id: string): Promise<{
+    message: string;
+  }> {
+    return this.request(`/campaigns/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async addCampaignRecipients(id: string, contactIds: number[]): Promise<{
+    added_recipients: any[];
+    message: string;
+  }> {
+    return this.request(`/campaigns/${id}/recipients`, {
+      method: 'POST',
+      body: JSON.stringify({ contact_ids: contactIds }),
+    });
+  }
+
+  async startCampaign(id: string): Promise<{
+    campaign: Campaign;
+    message: string;
+  }> {
+    return this.request(`/campaigns/${id}/start`, {
+      method: 'POST',
+    });
+  }
+
+  async pauseCampaign(id: string, action: 'pause' | 'resume'): Promise<{
+    campaign: Campaign;
+    message: string;
+  }> {
+    return this.request(`/campaigns/${id}/pause`, {
+      method: 'POST',
+      body: JSON.stringify({ action }),
+    });
+  }
+
+  // Template API methods
+  async getTemplates(params?: {
+    category?: string;
+    message_type?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    templates: MessageTemplate[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.category) queryParams.append('category', params.category);
+    if (params?.message_type) queryParams.append('message_type', params.message_type);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    
+    const query = queryParams.toString();
+    return this.request(`/templates${query ? `?${query}` : ''}`);
+  }
+
+  async getTemplateStats(): Promise<{
+    categories: any[];
+    stats: {
+      total_templates: number;
+      user_templates: number;
+      public_templates: number;
+      total_usage: number;
+    };
+  }> {
+    return this.request('/templates/stats');
+  }
+
+  async getTemplate(id: string): Promise<{
+    template: MessageTemplate;
+  }> {
+    return this.request(`/templates/${id}`);
+  }
+
+  async createTemplate(data: CreateTemplateRequest): Promise<{
+    template: MessageTemplate;
+    message: string;
+  }> {
+    return this.request('/templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateTemplate(id: string, data: UpdateTemplateRequest): Promise<{
+    template: MessageTemplate;
+    message: string;
+  }> {
+    return this.request(`/templates/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteTemplate(id: string): Promise<{
+    message: string;
+  }> {
+    return this.request(`/templates/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async useTemplate(id: string): Promise<{
+    template: MessageTemplate;
+    message: string;
+  }> {
+    return this.request(`/templates/${id}/use`, {
+      method: 'POST',
+    });
   }
 }
 
